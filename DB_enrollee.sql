@@ -171,4 +171,110 @@ FROM
 WHERE program_id = 4
 ORDER BY name_enrollee;    
 
---2. 
+--2. Вывести образовательные программы, на которые для поступления необходим предмет «Информатика». Программы отсортировать в обратном алфавитном порядке.
+
+SELECT name_program
+FROM
+    program
+    INNER JOIN program_subject USING(program_id)
+    INNER JOIN subject USING(subject_id)
+WHERE subject_id = 4
+ORDER BY name_program DESC;
+
+/*3.Выведите количество абитуриентов, сдавших ЕГЭ по каждому предмету, максимальное, минимальное и среднее значение баллов по предмету ЕГЭ. Вычисляемые столбцы назвать Количество, Максимум, Минимум, Среднее. Информацию отсортировать по названию предмета в алфавитном порядке, среднее значение округлить до одного знака после запятой.*/
+
+SELECT name_subject, 
+       COUNT(enrollee_id) AS Количество, 
+       MAX(result) AS Максимум, 
+       MIN(result) AS Минимум,
+       ROUND(AVG(result), 1) AS Среднее 
+FROM
+    subject
+    INNER JOIN enrollee_subject USING(subject_id)
+GROUP BY name_subject
+ORDER BY name_subject;
+
+--4. Вывести образовательные программы, для которых минимальный балл ЕГЭ по каждому предмету больше или равен 40 баллам. Программы вывести в отсортированном по алфавиту виде.
+
+SELECT DISTINCT(name_program)
+FROM
+    program
+    INNER JOIN program_subject USING(program_id)
+GROUP BY 1
+HAVING MIN(min_result) >= 40
+ORDER BY name_program;
+
+--5. Вывести образовательные программы, которые имеют самый большой план набора,  вместе с этой величиной.
+
+SELECT name_program, plan
+FROM program
+WHERE plan = (SELECT MAX(plan) FROM program);
+
+--6. Посчитать, сколько дополнительных баллов получит каждый абитуриент. Столбец с дополнительными баллами назвать Бонус. Информацию вывести в отсортированном по фамилиям виде.
+
+SELECT name_enrollee, IFNULL(SUM(bonus), 0) AS Бонус
+-- функция IFNULL(A, B) возвращает значение B если A is NULL, иначе возвращает A.
+-- COALESCE(A,B) вернет A, если B - NULL и вернет B, если  A - NULL.
+FROM enrollee
+    LEFT JOIN enrollee_achievement USING(enrollee_id)
+    LEFT JOIN achievement USING(achievement_id)
+GROUP BY name_enrollee    
+ORDER BY name_enrollee ASC
+
+--7. Выведите сколько человек подало заявление на каждую образовательную программу и конкурс на нее (число поданных заявлений деленное на количество мест по плану), округленный до 2-х знаков после запятой. В запросе вывести название факультета, к которому относится образовательная программа, название образовательной программы, план набора абитуриентов на образовательную программу (plan), количество поданных заявлений (Количество) и Конкурс. Информацию отсортировать в порядке убывания конкурса.
+
+SELECT department.name_department, 
+       program.name_program,
+       plan, 
+       COUNT(enrollee_id) AS Количество, 
+       ROUND(COUNT(enrollee_id)/plan, 2) AS Конкурс 
+FROM
+    program_enrollee
+    INNER JOIN program USING(program_id)
+    INNER JOIN department USING(department_id)
+GROUP BY 1, 2, 3
+ORDER BY 5 DESC;
+
+--8. Вывести образовательные программы, на которые для поступления необходимы предмет «Информатика» и «Математика» в отсортированном по названию программ виде.
+
+SELECT name_program
+FROM
+    program
+    INNER JOIN program_subject USING(program_id)
+    INNER JOIN subject USING(subject_id)
+WHERE name_subject IN('Информатика', 'Математика')
+GROUP BY 1
+HAVING COUNT(name_subject) = 2
+ORDER BY 1;
+
+--9. Посчитать количество баллов каждого абитуриента на каждую образовательную программу, на которую он подал заявление, по результатам ЕГЭ. В результат включить название образовательной программы, фамилию и имя абитуриента, а также столбец с суммой баллов, который назвать itog. Информацию вывести в отсортированном сначала по образовательной программе, а потом по убыванию суммы баллов виде.
+
+SELECT name_program, name_enrollee, SUM(enrollee_subject.result) AS itog 
+FROM
+    enrollee
+    INNER JOIN program_enrollee USING(enrollee_id)
+    INNER JOIN program USING(program_id)
+    INNER JOIN program_subject USING(program_id)
+    INNER JOIN subject USING(subject_id)
+    INNER JOIN enrollee_subject ON
+    subject.subject_id = enrollee_subject.subject_id 
+AND enrollee_subject.enrollee_id = enrollee.enrollee_id
+GROUP BY 1, 2
+ORDER BY 1, 3 DESC;
+
+/*10. Вывести название образовательной программы и фамилию тех абитуриентов, которые подавали документы на эту образовательную программу, но не могут быть зачислены на нее. Эти абитуриенты имеют результат по одному или нескольким предметам ЕГЭ, необходимым для поступления на эту образовательную программу, меньше минимального балла. Информацию вывести в отсортированном сначала по программам, а потом по фамилиям абитуриентов виде.
+Например, Баранов Павел по «Физике» набрал 41 балл, а  для образовательной программы «Прикладная механика» минимальный балл по этому предмету определен в 45 баллов. Следовательно, абитуриент на данную программу не может поступить.*/
+
+SELECT DISTINCT(name_program), name_enrollee
+FROM
+    enrollee
+    INNER JOIN program_enrollee USING(enrollee_id)
+    INNER JOIN program USING(program_id)
+    INNER JOIN program_subject USING(program_id)
+    INNER JOIN subject USING(subject_id)
+    INNER JOIN enrollee_subject ON
+    subject.subject_id = enrollee_subject.subject_id 
+AND enrollee_subject.enrollee_id = enrollee.enrollee_id
+WHERE min_result > result
+ORDER BY 1, 2;
+
